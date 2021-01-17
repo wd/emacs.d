@@ -1,0 +1,10 @@
+/.mc-lists.el
+/backups/
+/eln-cache/
+/org-gcal/
+/straight/
+/transient/
+/savefile/
+/auto-save-list/
+/request/
+/persist/
