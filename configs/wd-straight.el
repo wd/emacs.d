@@ -1,6 +1,7 @@
 ;; straight.el
 (setq straight-use-package-by-default t
-      straight-vc-git-default-clone-depth 1)
+      straight-vc-git-default-clone-depth 1
+      straight-repository-branch "develop")
 
 (defvar bootstrap-version)
 (let ((bootstrap-file
@@ -52,6 +53,10 @@
          yaml-mode
          go-mode
          eglot
+         org-super-agenda
+         git-gutter
+         wucuo
+         nyan-mode
          ))
 
 (dolist (package wd-required-packages)

@@ -1,5 +1,10 @@
 ;; wd-packages
 
+(use-package nyan-mode
+  :config
+  (nyan-mode)
+)
+
 (use-package savehist
   :config
   (setq savehist-additional-variables
@@ -17,15 +22,30 @@
         recentf-max-menu-items 15
         recentf-save-file (expand-file-name "recentf" wd-savefile-dir)
         recentf-auto-cleanup 'never)
-  ;; (recentf-load-list)
   (recentf-mode +1)
   )
 
-(use-package flyspell
+(use-package wucuo
+  :after flyspell
   :hook
-  ((text-mode prog-mode) . (lambda()(flyspell-mode +1)))
+  ((text-mode prog-mode) . wucuo-start)
   :config
+  (setq wucuo-spell-check-buffer-predicate
+      (lambda ()
+        (not (memq major-mode
+                   '(dired-mode
+                     log-edit-mode
+                     compilation-mode
+                     help-mode
+                     profiler-report-mode
+                     calc-mode
+                     Info-mode)))))
   (setq ispell-program-name "aspell")
+  (setq ispell-extra-args '("--sug-mode=ultra"
+                            "--lang=en_US"
+                            "--run-together"
+                            "--camel-case"
+                            "--run-together-limit=16"))
 )
 
 (use-package whitespace
@@ -104,14 +124,15 @@
 (use-package org
   :custom
   (org-export-backends '(ascii html md))
-  :bind (:map org-mode-map
-              ("C-x n s" . org-toggle-narrow-to-subtree))
-
+  :bind (("C-c a" . org-agenda)
+         :map org-mode-map
+         ("C-x n s" . org-toggle-narrow-to-subtree))
   :hook
   ((org-archive . (lambda() (org-save-all-org-buffers)))
    (org-mode . (lambda() (whitespace-mode -1)))
    )
   :config
+  (setq org-archive-location "archive.org::* From %s")
   (setq org-directory "~/org/")
   (setq org-default-notes-file "~/org/notes.org")
   (setq org-agenda-files
@@ -121,17 +142,10 @@
           (type "READ(r)" "BUG(b)" "RESEARCH(e)" "|" "DONE(d)")
           ))
 
-  (setq org-agenda-custom-commands
-        '(("h" "Agenda and tasks"
-           ((agenda "14d")
-            (todo "")
-            (tags "+reading")))
-          ))
-
   (setq org-capture-templates
         `(("r" "Readings(todo)" entry
            (file+headline "todo.org" "Readings")
-           ,(concat "* Read: %^{Link} :reading:%^g\n"
+           ,(concat "* %^{Link} :reading:%^g\n"
                     ":CAPTURED: %U\n:END:\n\n"
                     "%i%?"))
 
@@ -157,7 +171,6 @@
           ))
 )
 
-
 (use-package org-gcal
   :after org
   :custom
@@ -165,6 +178,57 @@
   :config
   (load-file (expand-file-name "org-gcal/settings.el" user-emacs-directory))
   (setq org-gcal-file-alist '(("c_aob62rb4ms5qrhvjfpkjogi0t0@group.calendar.google.com" .  "~/org/gcal.org")))
+  )
+
+(use-package org-super-agenda
+  :config
+  (org-super-agenda-mode +1)
+  (setq org-agenda-block-separator nil)
+  ;; (set-face-attribute 'org-agenda-structure nil :height 1.5)
+  (setq org-agenda-custom-commands
+        '(("h" "Agenda and tasks view"
+           ((agenda "" ((org-agenda-span 'day)
+                        (org-agenda-overriding-header "")
+                        (org-deadline-warning-days 0)
+                        ;; (org-deadline-past-days 0)
+                        (org-scheduled-warning-days 0)
+                        ;; (org-scheduled-past-days 0)
+                        (org-super-agenda-groups
+                         '((:name ">>> Today <<<\n"
+                                  :time-grid t
+                                  :date today
+                                  :todo "TODAY"
+                                  :scheduled today)
+                           (:name ">>> Overdue <<<\n"
+                                   :time-grid t
+                                   :scheduled past
+                                   :deadline past
+                                   )
+                           ))))
+
+            (agenda "" ((org-agenda-span 7)
+                        (org-agenda-start-day "+1d")
+                        (org-agenda-start-on-weekday nil)
+                        (org-agenda-overriding-header "\n>>> Next 7 days <<<\n")
+                        (org-super-agenda-groups
+                         '((:name ""
+                                  :time-grid t
+                                  :date t)
+                           ))))
+
+            (alltodo "" ((org-agenda-overriding-header "\n>>> Todos <<<\n")
+                        (org-super-agenda-groups
+                         '((:name ""
+                                  :and (:scheduled nil :deadline nil))
+                           (:discard (:anything t))
+                           ))))
+            (tags "reading" ((org-agenda-overriding-header "\n>>> Readings <<<\n")
+                         (org-super-agenda-groups
+                          '((:name ""
+                                   :and (:tag "reading" :not (:todo "DONE"))
+                                   :order 1)
+                            (:discard (:anything t))
+                            ))))))))
   )
 
 (use-package deft
@@ -175,7 +239,7 @@
   (setq deft-use-filename-as-title nil)
   (setq deft-use-filter-string-for-filename t)
   (setq deft-file-naming-rules
-        '((noslash . "-")
+        '(;; (noslash . "-")
           (nospace . "-")
           (case-fn . downcase)))
 
@@ -414,6 +478,7 @@
   ;;   (when amend (insert amend))))
 
 (use-package selectrum
+  :demand t
   :bind (("C-x C-r" . selectrum-repeat)
          :map selectrum-minibuffer-map
          ("M-<backspace>" . backward-kill-sexp)
@@ -487,7 +552,7 @@
   :bind (:map minibuffer-local-map
               ("C-M-a" . embark-act)
          :map embark-become-file+buffer-map
-         ("B" . consult-buffer)
+         ("b" . consult-buffer)
          ("F" . ffap)
          )
   :config
@@ -516,6 +581,11 @@
           (which-key--show-keymap "Embark" map nil nil 'no-paging)
           #'which-key--hide-popup-ignore-command)
         embark-become-indicator embark-action-indicator)
-)
+  )
+
+(use-package git-gutter
+  :config
+  (global-git-gutter-mode +1)
+  )
 
 (provide 'wd-packages)
