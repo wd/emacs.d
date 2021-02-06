@@ -66,6 +66,7 @@
       scroll-preserve-screen-position 1)
 
 (fset 'yes-or-no-p 'y-or-n-p)
+(setq use-dialog-box nil)
 (global-hl-line-mode 1)
 
 (setq frame-title-format
@@ -77,6 +78,8 @@
 (global-auto-revert-mode 1)
 (global-visual-line-mode 1)
 (setq-default tab-width 4)
+(setq-default major-mode 'text-mode)
+(setq-default initial-major-mode 'text-mode)
 (setq whitespace-line-column 120)
 (setq uniquify-buffer-name-style 'post-forward)
 (setq uniquify-separator ":")
@@ -96,9 +99,18 @@
 (defun back-to-indentation-or-beginning (arg)
   "combine two function into one call."
   (interactive "^p")
-  (if (bolp)
-      (back-to-indentation)
-    (move-beginning-of-line arg)))
+  (setq arg (or arg 1))
+
+  ;; Move lines first
+  (when (/= arg 1)
+    (let ((line-move-visual nil))
+      (forward-line (1- arg))))
+
+  (let ((orig-point (point)))
+    (back-to-indentation)
+    (when (= orig-point (point))
+      (move-beginning-of-line 1))))
+
 
 ;; keybindings
 (global-set-key "\C-t" 'set-mark-command)

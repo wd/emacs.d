@@ -1,7 +1,7 @@
 ;; (byte-recompile-directory (expand-file-name "~/.emacs.d") 0)
 (setq package-native-compile t)
 (setq comp-speed 2)
-
+(setq warning-minimum-level :error)
 (setq url-proxy-services
        '(("no_proxy" . "^\\(127.0.0.1\\|localhost\\|10.*\\)")
          ("http" . "127.0.0.1:6152")

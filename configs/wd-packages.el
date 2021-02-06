@@ -1,5 +1,8 @@
 ;; wd-packages
 
+(use-package wgrep
+  :demand t)
+
 (use-package nyan-mode
   :config
   (nyan-mode)
@@ -176,6 +179,7 @@
   :custom
   (request-curl-options '("--socks5-hostname" "127.0.0.1:6153"))
   :config
+  (setq org-gcal-remove-api-cancelled-events t)
   (load-file (expand-file-name "org-gcal/settings.el" user-emacs-directory))
   (setq org-gcal-file-alist '(("c_aob62rb4ms5qrhvjfpkjogi0t0@group.calendar.google.com" .  "~/org/gcal.org")))
   )
@@ -360,11 +364,12 @@
 
 	("g" magit-status "git" :exit t)
 	("i" consult-imenu "imenu" :exit t)
+    ("l" wd/visit-file-url "Git link" :exit t)
 
 	;; edit
 	("J" (lambda() (interactive)(delete-indentation 1)) "join line" :column "edit")
 	("G" consult-goto-line "Goto line" :exit t)
-	("j" avy-goto-line "Avy goto line" :exit t)
+	;; ("j" avy-goto-char "Avy goto char" :exit t)
 	("D" kill-whole-line "Kill line")
 
 	;; misc
@@ -393,6 +398,7 @@
   )
 
 (use-package projectile
+  :demand t
   :bind (("M-X" . projectile-find-file)
          :map projectile-mode-map
          ("C-c p" . projectile-command-map)
@@ -448,62 +454,65 @@
 
 (use-package magit
   :bind (:map magit-mode-map
-              ("v" . endless/visit-pull-request-url))
+              ("v" . wd/visit-pull-request-url))
   :config
-  (defun endless/visit-pull-request-url ()
-	"Visit the current branch's PR on Github."
-	(interactive)
-	(browse-url
-	 (format "https://github.com/%s/pull/new/%s"
-			 (replace-regexp-in-string
+  (defun wd/get-repo-name()
+    (replace-regexp-in-string
               "\\`.+github\\.com:\\(.+\\)\\.git\\'" "\\1"
               (magit-get "remote"
 						 (magit-get-push-remote)
 						 "url"))
+    )
+
+  (defun wd/visit-pull-request-url ()
+	"Visit the current branch's PR on Github."
+	(interactive)
+	(browse-url
+	 (format "https://github.com/%s/pull/new/%s"
+			 (wd/get-repo-name)
 			 (magit-get-current-branch))))
+
+  (defun wd/get-region-line-number()
+    (if (region-active-p)
+        (save-excursion
+          (let (line-begin line-end pos1 pos2)
+            (setq pos1 (region-beginning)
+                  pos2 (- (region-end) 1))
+            (setq line-begin (line-number-at-pos (goto-char pos1))
+                  line-end (line-number-at-pos (goto-char pos2)))
+            (if (= line-begin line-end)
+                (format "#L%s" line-begin)
+              (format "#L%s-L%s" line-begin line-end)
+              )
+            )
+          )
+      ""
+      )
+    )
+
+  (defun wd/visit-file-url()
+    "Visit the current file on Github"
+    (interactive)
+    (browse-url
+     (format "https://github.com/%s/blob/%s/%s%s"
+             (wd/get-repo-name)
+             (magit-get-current-branch)
+             (magit-current-file)
+             (wd/get-region-line-number)
+             ))
+    )
   )
 
 (use-package avy
   :bind (("C-r" . avy-goto-char-timer)
-         ("C-M-l" . avy-goto-line))
+         ("C-M-l" . avy-goto-word-0))
   :config
   (setq avy-background t)
   (setq avy-style 'at-full)
 )
 
-  ;; (let (amend)
-  ;;   (with-selected-window (ivy-state-window ivy-last)
-  ;;     (goto-char swiper--opoint)
-  ;;     (setq amend (thing-at-point 'symbol)))
-  ;;   (when amend (insert amend))))
-
-(use-package selectrum
-  :demand t
-  :bind (("C-x C-r" . selectrum-repeat)
-         :map selectrum-minibuffer-map
-         ("M-<backspace>" . backward-kill-sexp)
-         ("/" . wd/selectrum-insert-or-input-slash)
-         )
-  :config
-  (defun wd/selectrum-insert-or-input-slash()
-    (interactive)
-    (if (member selectrum--last-command '(find-file ffap projectile-find-file))
-      (selectrum-insert-current-candidate)
-      (insert "/")
-      )
-    )
-  (selectrum-mode +1)
-  )
-
-(use-package orderless
-  :init (icomplete-mode) ; optional but recommended!
-  :custom (completion-styles '(orderless))
-  :config
-  (setq selectrum-refine-candidates-function #'orderless-filter)
-  (setq selectrum-highlight-candidates-function #'orderless-highlight-matches)
-  )
-
 (use-package consult
+  :demand t
   :bind (("C-x b" . consult-buffer)
          ("C-x 4 b" . consult-buffer-other-window)
 
@@ -538,8 +547,69 @@
   ;; Optionally configure a function which returns the project root directory
   (autoload 'projectile-project-root "projectile")
   (setq consult-project-root-function #'projectile-project-root)
-  (require 'consult-selectrum)
   )
+
+(use-package selectrum
+  :demand t
+  :hook (minibuffer-setup . wd/save-last-buffer-and-pos)
+  :bind (("C-x C-r" . selectrum-repeat)
+         :map selectrum-minibuffer-map
+         ("M-<backspace>" . wd/backward-kill-sexp)
+         ("/" . wd/selectrum-insert-or-input-slash)
+         ("M-j" . wd/selectrum-insert-thing-at-point)
+         )
+  :config
+  (defun wd/backward-kill-sexp()
+    (interactive)
+    (delete-region
+     (point)
+     (progn
+       (backward-sexp)
+       (point)))
+    )
+
+  (defun wd/selectrum-insert-or-input-slash()
+    (interactive)
+    (if (member selectrum--last-command '(find-file ffap projectile-find-file))
+        (progn
+          (if (< selectrum--current-candidate-index 0)
+              (setq selectrum--current-candidate-index 0)
+            )
+          (selectrum-insert-current-candidate)
+          )
+      (insert "/")
+      )
+    )
+
+  (defun wd/save-last-buffer-and-pos ()
+    (let* ((win (minibuffer-selected-window))
+           (buf (window-buffer win)))
+      (with-current-buffer buf
+        (setq wd/last-buffer buf)
+        (setq-local wd/pos-in-last-buffer (point)))
+      ))
+
+  (defun wd/selectrum-insert-thing-at-point()
+    (interactive)
+    (let (amend)
+      (with-current-buffer wd/last-buffer
+        (save-restriction
+          (goto-char wd/pos-in-last-buffer)
+          (setq amend (thing-at-point 'symbol))
+          ))
+      (when amend (insert amend)))
+    )
+
+  (selectrum-mode +1)
+  )
+
+(use-package orderless
+  :demand t
+  :config
+  (setq selectrum-refine-candidates-function #'orderless-filter)
+  (setq selectrum-highlight-candidates-function #'orderless-highlight-matches)
+  (setq completion-styles '(substring orderless))
+)
 
 (use-package marginalia
   :config
@@ -551,37 +621,19 @@
 (use-package embark
   :bind (:map minibuffer-local-map
               ("C-M-a" . embark-act)
-         :map embark-become-file+buffer-map
-         ("b" . consult-buffer)
-         ("F" . ffap)
+         ;; :map embark-become-file+buffer-map
+         ;; ("b" . consult-buffer)
+         ;; ("F" . ffap)
          )
   :config
-  ;; For Selectrum users:
-  (defun current-candidate+category ()
-    (when selectrum-active-p
-      (cons (selectrum--get-meta 'category)
-            (selectrum-get-current-candidate))))
-
-  (add-hook 'embark-target-finders #'current-candidate+category)
-
-  (defun current-candidates+category ()
-    (when selectrum-active-p
-      (cons (selectrum--get-meta 'category)
-            (selectrum-get-current-candidates
-             ;; Pass relative file names for dired.
-             minibuffer-completing-file-name))))
-
-  (add-hook 'embark-candidate-collectors #'current-candidates+category)
-
-  ;; No unnecessary computation delay after injection.
-  (add-hook 'embark-setup-hook 'selectrum-set-selected-candidate)
-
   (setq embark-action-indicator
         (lambda (map)
           (which-key--show-keymap "Embark" map nil nil 'no-paging)
           #'which-key--hide-popup-ignore-command)
         embark-become-indicator embark-action-indicator)
   )
+
+(use-package embark-consult)
 
 (use-package git-gutter
   :config
