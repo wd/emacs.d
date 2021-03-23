@@ -52,11 +52,11 @@
 		 marginalia
          yaml-mode
          go-mode
-         eglot
          org-super-agenda
          git-gutter
          wucuo
          nyan-mode
+         flyspell-correct
          ))
 
 (dolist (package wd-required-packages)

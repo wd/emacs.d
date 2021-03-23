@@ -51,6 +51,10 @@
                             "--run-together-limit=16"))
 )
 
+(use-package flyspell-correct
+  :after flyspell
+  :bind (:map flyspell-mode-map ("C-;" . flyspell-correct-wrapper)))
+
 (use-package whitespace
   :hook
   (((text-mode prog-mode) . (lambda()(whitespace-mode +1)))
